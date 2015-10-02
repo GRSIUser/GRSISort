@@ -481,7 +481,7 @@ int TDataParser::GriffinDataToFragment(uint32_t *data, int size, int bank, unsig
                   if(x+1 < size) {
                      SetGRIFCc(value, EventFrag);
                      ++x;
-                     dword = *(data+x);
+                     dword = data[x];
                      SetGRIFPsd(dword, EventFrag);
                   } else {
                      return -x;
@@ -496,12 +496,18 @@ int TDataParser::GriffinDataToFragment(uint32_t *data, int size, int bank, unsig
          default:
             if((packet & 0x80000000) == 0x00000000) {
 					//check that there is another word and that it is also a charge/cfd word
-               if(x+1 < size &&  (*(data+x+1) & 0x80000000) == 0x0) {
-                  EventFrag->KValue.push_back( (*(data+x) & 0x7c000000) >> 21 );
-                  EventFrag->Charge.push_back((*(data+x) & 0x03ffffff));
+               if(x+1 < size &&  (data[x+1] & 0x80000000) == 0x0) {
+                  EventFrag->KValue.push_back( (data[x] & 0x7c000000) >> 21 );
+                  //check if the sign bit is set and if it is extend it
+                  if(((data[x]>>25)&0x1) == 0x1) {
+                     //printf("Changing negative charge from 0x%08x (%d) to 0x%08x (%d)\n", data[x] & 0x03ffffff, data[x] & 0x03ffffff, data[x] | 0xfc000000, data[x] | 0xfc000000);
+                     EventFrag->Charge.push_back(data[x] | 0xfc000000);
+                  } else {
+                     EventFrag->Charge.push_back(data[x] & 0x03ffffff);
+                  }
                   ++x;
-                  EventFrag->KValue.back() |= (*(data+x) & 0x7c000000) >> 26;
-                  EventFrag->Cfd.push_back( (*(data+x) & 0x03ffffff));
+                  EventFrag->KValue.back() |= (data[x] & 0x7c000000) >> 26;
+                  EventFrag->Cfd.push_back(data[x] & 0x03ffffff);
                } else {
                   return -x;
                }
