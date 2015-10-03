@@ -171,7 +171,9 @@ void TGRSIRootIO::FillPPG(TPPGData* data) {
 }
 
 void TGRSIRootIO::FillScaler(int address, TScalerData* data) {
-  fScaler->AddData(address, data);
+  if(fScaler){
+     fScaler->AddData(address, data);
+  }
   ++fTimesScalerCalled;
 }
 

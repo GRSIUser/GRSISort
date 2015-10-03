@@ -230,7 +230,7 @@ TH1D* TScaler::Draw(UInt_t address, size_t index, Option_t *option) {
 	}
 	//if the address doesn't exist in the histogram map, insert a null pointer
 	if(fHist.find(address) == fHist.end()) {
-		fHist[address] == NULL;
+		fHist[address] = NULL;
 	}
 	//try and find the ppg (if we haven't already done so
 	if(fPPG == NULL) {

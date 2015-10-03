@@ -249,7 +249,7 @@ Bool_t TPeak::Fit(TH1* fithist,Option_t *opt){
       InitParams(fithist);
    ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2","Combination");
    TVirtualFitter::SetMaxIterations(100000);
-   TVirtualFitter::SetPrecision(1e-5);
+   TVirtualFitter::SetPrecision(1e-8);
 
    SetHist(fithist);
 
@@ -273,7 +273,7 @@ Bool_t TPeak::Fit(TH1* fithist,Option_t *opt){
    TFitResultPtr fitres;
    //Log likelihood is the proper fitting technique UNLESS the data is a result of an addition or subtraction.
    if(GetLogLikelihoodFlag()){
-      fitres = fithist->Fit(this,Form("%sRLS",opt));//The RS needs to always be there
+      fitres = fithist->Fit(this,Form("%sRLLS",opt));//The RS needs to always be there
    }
    else{
       fitres = fithist->Fit(this,Form("%sRS",opt));//The RS needs to always be there
@@ -293,7 +293,7 @@ Bool_t TPeak::Fit(TH1* fithist,Option_t *opt){
    	 // Leaving the log-likelihood argument out so users are not constrained to just using that. - JKS
          fithist->GetListOfFunctions()->Last()->Delete();
          if(GetLogLikelihoodFlag()){
-            fitres = fithist->Fit(this,Form("%sRLS",opt));//The RS needs to always be there
+            fitres = fithist->Fit(this,Form("%sRLLS",opt));//The RS needs to always be there
          }
          else{
             fitres = fithist->Fit(this,Form("%sRS",opt));
@@ -333,13 +333,17 @@ Bool_t TPeak::Fit(TH1* fithist,Option_t *opt){
    //This is where we will do integrals and stuff.
    farea = (tmppeak->Integral(int_low,int_high))/binWidth;
    //Set the background values in the covariance matrix to 0, while keeping their covariance errors
-   TMatrixDSym CovMat = fitres->GetCovarianceMatrix();
-   CovMat(5,5) = 0.0;
-   CovMat(6,6) = 0.0;
-   CovMat(7,7) = 0.0;
-   CovMat(8,8) = 0.0;
-   CovMat(9,9) = 0.0;
-   fd_area = (tmppeak->IntegralError(int_low,int_high,tmppeak->GetParameters(),CovMat.GetMatrixArray())) /binWidth;
+   if(fitres->CovMatrixStatus() > 0) {
+      TMatrixDSym CovMat = fitres->GetCovarianceMatrix();
+      CovMat(5,5) = 0.0;
+      CovMat(6,6) = 0.0;
+      CovMat(7,7) = 0.0;
+      CovMat(8,8) = 0.0;
+      CovMat(9,9) = 0.0;
+      fd_area = (tmppeak->IntegralError(int_low,int_high,tmppeak->GetParameters(),CovMat.GetMatrixArray())) /binWidth;
+   } else {
+      fd_area = 0.;
+   }
 
    if(print_flag) printf("Integral: %lf +/- %lf\n",farea,fd_area);
    //Set the background for drawing later

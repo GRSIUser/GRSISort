@@ -85,10 +85,11 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
    Double_t ggBGScale = (ggThigh - ggTlow)/(ggBGhigh - ggBGlow);
    Double_t gbBGScale = (gbThigh - gbTlow)/(gbBGhigh - gbBGlow);
 
-   Double_t betaThres = 800.;
+   Double_t betaThresLow = 800.;
+   Double_t betaThresHigh = 50000.;
 
    //this is in ms
-   Double_t cycleLength = 15000;
+   Double_t cycleLength = 800;
    if(ppg) {
       cycleLength = ppg->GetCycleLength()/1e5;
    }
@@ -111,6 +112,7 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
    //We create some spectra and then add it to the list
    //hit patterns
    TH2D* bIdVsgId = new TH2D("bIdVsgId","Sceptar Id vs Griffin Id",20,1,21,64,1,65); list->Add(bIdVsgId);
+   TH2D* digitizerHitPattern = new TH2D("digitizerHitPattern","Sceptar Id vs Griffin Id",20,1,21,64,1,65); list->Add(digitizerHitPattern);
 
    //gamma single spectra
    TH1D* gammaSingles = new TH1D("gammaSingles","#gamma singles;energy[keV]",nofBins, low, high); list->Add(gammaSingles);
@@ -118,7 +120,7 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
    TH1D* gammaSinglesBm = new TH1D("gammaSinglesBm","#beta #gamma (multiple counting of #beta's);energy[keV]",nofBins, low, high); list->Add(gammaSinglesBm);
    TH1D* gammaSinglesBt = new TH1D("gammaSinglesBt","#beta #gamma t-rand-corr; energy[keV]",nofBins, low, high); list->Add(gammaSinglesBt);
    TH1D* ggTimeDiff = new TH1D("ggTimeDiff", "#gamma-#gamma time difference", 300,0,300); list->Add(ggTimeDiff);
-   TH1D* gbTimeDiff = new TH1D("gbTimeDiff", "#gamma-#beta time difference", 2000,-1000,1000); list->Add(gbTimeDiff); 
+   TH2D* gbTimeDiff = new TH2D("gbTimeDiff", "#gamma digitizer vs. #gamma-#beta time difference", 2000,-1000,1000, 4, 0., 4.); list->Add(gbTimeDiff); 
    TH2D* bbTimeDiff = new TH2D("bbTimeDiff", "#beta energy vs. #beta-#beta time difference", 2000,-1000,1000, 1000, 0., 2e6); list->Add(bbTimeDiff); 
    TH2D* gTimeDiff = new TH2D("gTimeDiff", "channel vs. time difference", 2000,0,2000, 65, 1., 65.); list->Add(gTimeDiff); 
    TH1F* gtimestamp = new TH1F("gtimestamp", "#gamma time stamp", 10000,0,1000); list->Add(gtimestamp);
@@ -135,16 +137,19 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
    TH2D* ggbmatrixOn = new TH2D("ggbmatrixOn","#gamma-#gamma-#beta matrix, beam on window", nofBins, low, high, nofBins, low, high); list->Add(ggbmatrixOn);
    TH2F* ggbmatrixBg = new TH2F("ggbmatrixBg","#gamma-#gamma-#beta matrix, background window", nofBins, low, high, nofBins, low, high); list->Add(ggbmatrixBg);
    TH2F* ggbmatrixOff = new TH2F("ggbmatrixOff","#gamma-#gamma-#beta matrix, beam off window", nofBins, low, high, nofBins, low, high); list->Add(ggbmatrixOff);
+   TH2F* bEVsgbTime = new TH2F("bEVsgbTime", "#beta energy Vs #gamma-#beta Timing",600,-300,300,3000,0,300000); list->Add(bEVsgbTime);
 
    TH2F* gammaSinglesCyc;
    TH2F* gammaSinglesBCyc;
    TH2F* gammaSinglesBmCyc;
    TH2F* betaSinglesCyc;
+   TH2F* betaSinglesCycNew;
    if(ppg){
       gammaSinglesCyc = new TH2F("gammaSinglesCyc", "Cycle time vs. #gamma energy", cycleLength/10.,0.,cycleLength, nofBins,low,high); list->Add(gammaSinglesCyc);
       gammaSinglesBCyc = new TH2F("gammaSinglesBCyc", "Cycle time vs. #beta coinc #gamma energy", cycleLength/10.,0.,ppg->GetCycleLength()/1e5, nofBins,low,high); list->Add(gammaSinglesBCyc);
       gammaSinglesBmCyc = new TH2F("gammaSinglesBmCyc", "Cycle time vs. #beta coinc #gamma energy (multiple counting of #beta's)", cycleLength/10.,0.,cycleLength, nofBins,low,high); list->Add(gammaSinglesBmCyc);
       betaSinglesCyc = new TH2F("betaSinglesCyc", "Cycle number vs. cycle time for #beta's", cycleLength/10.,0.,cycleLength,1000,0,1000); list->Add(betaSinglesCyc);
+      betaSinglesCycNew = new TH2F("betaSinglesCycNew", "Cycle number vs. cycle time for #beta's", cycleLength/10.,0.,cycleLength,1000,0,1000); list->Add(betaSinglesCycNew);
    }
    //addback spectra
    TH1D* gammaAddback = new TH1D("gammaAddback","#gamma singles;energy[keV]",nofBins, low, high); list->Add(gammaAddback);
@@ -232,6 +237,7 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
       //loop over the gammas in the event packet
       //grif is the variable which points to the current TGriffin
       for(one = 0; one < (int) grif->GetMultiplicity(); ++one) {
+         if(grif->GetGriffinHit(one)->NPileUps()>1) continue;
          //We want to put every gamma ray in this event into the singles
          gammaSingles->Fill(grif->GetGriffinHit(one)->GetEnergy()); 
          gtimestamp->Fill(grif->GetGriffinHit(one)->GetTime()/100000000.);
@@ -252,6 +258,8 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
             if(two == one){ //If we are looking at the same gamma we don't want to call it a coincidence
                continue;
             }
+            if(grif->GetGriffinHit(two)->NPileUps()>1) continue;
+            digitizerHitPattern->Fill((grif->GetGriffinHit(one)->GetArrayNumber()-1)/16, (grif->GetGriffinHit(two)->GetArrayNumber()-1)/16);
             //Check to see if the two gammas are close enough in time
             ggTimeDiff->Fill(TMath::Abs(grif->GetGriffinHit(two)->GetTime()-grif->GetGriffinHit(one)->GetTime()));
             if(ggTlow <= TMath::Abs(grif->GetGriffinHit(two)->GetTime()-grif->GetGriffinHit(one)->GetTime()) && TMath::Abs(grif->GetGriffinHit(two)->GetTime()-grif->GetGriffinHit(one)->GetTime()) < ggThigh) { 
@@ -271,7 +279,7 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
          bool plotted_flag = false;
          //We do an outside loop on gammas so that we can break on the betas if we see a beta in coincidence (we don't want to bin twice just because we have two betas)
          for(int b = 0; b < scep->GetMultiplicity(); ++b) {
-            if(scep->GetHit(b)->GetEnergy() < betaThres) continue;
+            if((scep->GetHit(b)->GetEnergy() < betaThresLow) || (scep->GetHit(b)->GetEnergy() > betaThresHigh)) continue;
             btimestamp->Fill(scep->GetHit(b)->GetTime()/1e8);
             if(ppg && !plotted_flag){//Fill on first hit only.
                betaSinglesCyc->Fill(((ULong64_t)(ppg->GetTimeInCycle(scep->GetHit(b)->GetTime()))/1e5),ppg->GetCycleNumber((ULong64_t)(scep->GetHit(b)->GetTime()))); 
@@ -284,13 +292,16 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
             }
          }
          for(one = 0; one < (int) grif->GetMultiplicity(); ++one) {
+            if(grif->GetGriffinHit(one)->NPileUps()>1) continue;
             bool found = false;
             for(int b = 0; b < scep->GetMultiplicity(); ++b) {
-               if(scep->GetHit(b)->GetEnergy() < betaThres) continue;
+               if((scep->GetHit(b)->GetEnergy() < betaThresLow) || (scep->GetHit(b)->GetEnergy() > betaThresHigh)) continue;
+               digitizerHitPattern->Fill((grif->GetGriffinHit(one)->GetArrayNumber()-1)/16, 4);//0-3 are griffin, so 4 is sceptar
                //Be careful about time ordering!!!! betas and gammas are not symmetric out of the DAQ
                //Fill the time diffrence spectra
-               gbTimeDiff->Fill(grif->GetHit(one)->GetTime()-scep->GetHit(b)->GetTime());
+               gbTimeDiff->Fill(grif->GetHit(one)->GetTime()-scep->GetHit(b)->GetTime(), (grif->GetGriffinHit(one)->GetArrayNumber()-1)/16);
                gbTimevsg->Fill(grif->GetHit(one)->GetTime()-scep->GetHit(b)->GetTime(),grif->GetHit(one)->GetEnergy());
+               bEVsgbTime->Fill(grif->GetHit(one)->GetTime() - scep->GetHit(b)->GetTime() ,scep->GetHit(b)->GetEnergy());
                if((gbTlow <= grif->GetHit(one)->GetTime()-scep->GetHit(b)->GetTime()) && (grif->GetHit(one)->GetTime()-scep->GetHit(b)->GetTime() <= gbThigh)) {
                   gbEnergyvsbTime->Fill(scep->GetHit(b)->GetTime(),grif->GetHit(one)->GetEnergy());
                }
@@ -318,6 +329,7 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
                         if(two == one){ //If we are looking at the same gamma we don't want to call it a coincidence
                            continue;
                         }
+                        if(grif->GetGriffinHit(two)->NPileUps()>1) continue;
 
                         if(ggTlow <= TMath::Abs(grif->GetGriffinHit(two)->GetTime()-grif->GetGriffinHit(one)->GetTime()) && TMath::Abs(grif->GetGriffinHit(two)->GetTime()-grif->GetGriffinHit(one)->GetTime()) < ggThigh) { 
                            //If they are close enough in time, fill the gamma-gamma-beta matrix. This will be symmetric because we are doing a double loop over gammas
@@ -382,7 +394,7 @@ TList *LeanMatrices(TTree* tree, TPPG* ppg, TGRSIRunInfo* runInfo, long maxEntri
          for(one = 0; one < (int) grif->GetAddbackMultiplicity(); ++one) {
             bool found = false;
             for(int b = 0; b < scep->GetMultiplicity(); ++b) {
-               if(scep->GetHit(b)->GetEnergy() < betaThres) continue;
+               if((scep->GetHit(b)->GetEnergy() < betaThresLow) || (scep->GetHit(b)->GetEnergy() > betaThresHigh)) continue;
                //Be careful about time ordering!!!! betas and gammas are not symmetric out of the DAQ
                //Fill the time diffrence spectra
                abTimeDiff->Fill(grif->GetAddbackHit(one)->GetTime()-scep->GetHit(b)->GetTime());
